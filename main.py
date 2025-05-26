@@ -1,6 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from datetime import date
+from fastapi import FastAPI, HTTPException, Query
 from db import get_connection
 from pydantic import BaseModel
+import requests
 
 app = FastAPI()
 
@@ -102,3 +104,52 @@ def crear_solicitud(solicitud: SolicitudProducto):
             return {"mensaje": "Solicitud creada correctamente"}
     finally:
         conn.close()
+
+#Conversion de divisas CLP a USD y viceversa
+USER = "fr.manriquezf@duocuc.cl"
+PASS = "Hola123"
+SERIE = "F073.TCO.PRE.Z.D"  # Tipo de cambio dólar observado
+
+def obtener_valor_dolar_observado():
+    hoy = date.today().strftime("%Y-%m-%d")
+    url = (
+        f"https://si3.bcentral.cl/SieteRestWS/SieteRestWS.ashx"
+        f"?user={USER}&pass={PASS}&firstdate={hoy}&lastdate={hoy}"
+        f"&timeseries={SERIE}&function=GetSeries"
+    )
+
+    resp = requests.get(url)
+    print(f"Status: {resp.status_code}")
+    print(f"Contenido:\n{resp.text}")
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=500, detail="Error al obtener datos del Banco Central")
+
+    try:
+        data = resp.json()
+        obs_list = data.get("Series", {}).get("Obs", [])
+        if not obs_list:
+            raise HTTPException(status_code=404, detail="No hay valor disponible para hoy")
+        valor = float(obs_list[0]["value"])
+        return valor
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error procesando datos: {e}")
+
+@app.get("/convertir")
+def convertir(monto: float = Query(..., gt=0), moneda_origen: str = Query(..., pattern="^(CLP|USD)$")):
+    tasa = obtener_valor_dolar_observado()
+
+    if moneda_origen.upper() == "CLP":
+        convertido = monto / tasa
+        moneda_destino = "USD"
+    else:
+        convertido = monto * tasa
+        moneda_destino = "CLP"
+
+    return {
+        "monto_original": monto,
+        "moneda_origen": moneda_origen.upper(),
+        "monto_convertido": round(convertido, 2),
+        "moneda_destino": moneda_destino,
+        "tasa_actual": tasa
+    }
