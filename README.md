@@ -25,6 +25,21 @@ Para ejecutar el proyecto en la terminal se inicia asi = uvicorn main:app --relo
 ```bash 
 git clone https://github.com/JavierPelao/api_ferremas.git
 cd api_ferremas
+```
+
+## 💱 API de Conversión de Moneda (CLP/USD)
+
+(PARA UTILIZARLO CAMBIARLO A LA RAMA (branch) "Conversion de Divisas")
+
+Esta API permite convertir montos entre pesos chilenos (CLP) y dólares estadounidenses (USD), utilizando la API del Banco Central de Chile
+
+Despues de utilizar el comando "uvicorn main:app --reload" hay que abrir el postman poner:
+
+Convertir de CLP a USD
+(GET http://127.0.0.1:8000/convertir?monto=10000&moneda_origen=CLP)
+
+Convertir de USD a CLP
+(GET http://127.0.0.1:8000/convertir?monto=10&moneda_origen=USD)
 
 
 
