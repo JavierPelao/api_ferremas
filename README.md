@@ -27,4 +27,7 @@ git clone https://github.com/JavierPelao/api_ferremas.git
 cd api_ferremas
 
 
+## 💱 API de Conversión de Moneda (CLP/USD)
 
+(SOLAMENTE FUNCIONA EN LA RAMA "Conversion de Divisas"
+Esta API permite convertir montos entre pesos chilenos (CLP) y dólares estadounidenses (USD), utilizando la API del Banco Central de Chile
