@@ -102,3 +102,66 @@ def crear_solicitud(solicitud: SolicitudProducto):
             return {"mensaje": "Solicitud creada correctamente"}
     finally:
         conn.close()
+
+#-------PAYPAL--------
+# Configuración PayPal (reemplaza con tus datos)
+paypalrestsdk.configure({
+    "mode": "sandbox",
+    "client_id": "AQJsUqE8-P0orUYjNNMjZ3_3tC-y8Txx47R028AC8_HQdbXJTM0mUrwZVLA-RU89HErsLkKty4VpIs0x",
+    "client_secret": "EP4vZM6u1bKYLPBSAeukmJr76UngVhIXZQRF1ecPF9QtusHbB7UpQp60WgebZmTsSBvoEKdBjmLiV9sa"
+})
+
+class PagoRequest(BaseModel):
+    total: str  # Ej: "10.00"
+    currency: str = "USD"  # Por defecto USD
+    descripcion: str = "Pago desde FastAPI con PayPal"
+
+@app.post("/crear-pago")
+def crear_pago(pago_request: PagoRequest):
+    pago = paypalrestsdk.Payment({
+        "intent": "sale",
+        "payer": {
+            "payment_method": "paypal"
+        },
+        "redirect_urls": {
+            "return_url": "http://localhost:8000/pago-exitoso",
+            "cancel_url": "http://localhost:8000/pago-cancelado"
+        },
+        "transactions": [{
+            "amount": {
+                "total": pago_request.total,
+                "currency": pago_request.currency
+            },
+            "description": pago_request.descripcion
+        }]
+    })
+
+    if pago.create():
+        for link in pago.links:
+            if link.rel == "approval_url":
+                return {"url_pago": link.href}
+    else:
+        raise HTTPException(status_code=500, detail=pago.error)
+
+@app.get("/pago-exitoso")
+def pago_exitoso(paymentId: str = Query(...), PayerID: str = Query(...)):
+    pago = paypalrestsdk.Payment.find(paymentId)
+
+    if pago.execute({"payer_id": PayerID}):
+        monto = pago.transactions[0].amount.total
+        estado = pago.state  # normalmente "approved"
+
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO ventas (id_pago, estado, monto) VALUES (%s, %s, %s)",
+                    (paymentId, estado, monto)
+                )
+                conn.commit()
+        finally:
+            conn.close()
+
+        return {"mensaje": "Pago aprobado y registrado en la tabla ventas"}
+    else:
+        raise HTTPException(status_code=500, detail=pago.error)
