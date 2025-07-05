@@ -8,4 +8,4 @@ def get_connection():
         password="Jav_pelao3266",
         database="ferremas_db",
         cursorclass=pymysql.cursors.DictCursor
-    )a
+    )

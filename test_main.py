@@ -35,3 +35,14 @@ def test_delete_producto():
     response = client.delete("/productos/TST123")
     assert response.status_code == 200
     assert response.json()["mensaje"] == "Producto eliminado correctamente"
+
+
+def test_post_solicitud():
+    data = {
+        "codigo_producto": "TST123",
+        "cantidad": 5,
+        "sucursal": "Santiago"
+    }
+    response = client.post("/solicitudes", json=data)
+    assert response.status_code == 200
+    assert response.json()["mensaje"] == "Solicitud creada correctamente"
