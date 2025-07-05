@@ -14,6 +14,12 @@ class Producto(BaseModel):
     precio: float
     stock: int
 
+class ProductoUpdate(BaseModel):
+    nombre: str
+    marca: str
+    precio: float
+    stock: int
+
 
 # Get para listar los productos
 @app.get("/productos")
@@ -52,7 +58,7 @@ def crear_productos(producto: Producto):
 
 #actualizar los productos
 @app.put("/productos/{codigo}")
-def actualizar_producto(codigo: str, producto: Producto):
+def actualizar_producto(codigo: str, producto: ProductoUpdate):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -68,6 +74,7 @@ def actualizar_producto(codigo: str, producto: Producto):
             return {"mensaje": "Producto actualizado correctamente"}
     finally:
         conn.close()
+
 
 #Eliminar producto por código
 @app.delete("/productos/{codigo}")
