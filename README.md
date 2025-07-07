@@ -60,22 +60,29 @@ API REST para la gestión de productos de ferretería, solicitudes, conversión 
    ```sql
    CREATE DATABASE ferremas_db;
    USE ferremas_db;
-
+   
+   -- Tabla de creacion de productos
    CREATE TABLE productos (
        codigo VARCHAR(50) PRIMARY KEY,
        nombre VARCHAR(100),
        marca VARCHAR(100),
        precio FLOAT,
        stock INT
-   );
+   
+   
+    -- Tabla solicitudes
+    CREATE TABLE solicitudes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        codigo_producto VARCHAR(20),
+        cantidad INT,
+        sucursal VARCHAR(100),
+        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (codigo_producto) REFERENCES productos(codigo)
 
-   CREATE TABLE solicitudes (
-       id INT AUTO_INCREMENT PRIMARY KEY,
-       codigo_producto VARCHAR(50),
-       cantidad INT,
-       sucursal VARCHAR(100),
-       FOREIGN KEY (codigo_producto) REFERENCES productos(codigo)
-   );
+     -- Insertar producto de prueba
+      INSERT INTO productos (codigo, nombre, marca, precio, stock)
+      VALUES ('TST123', 'Producto de prueba', 'MarcaTest', 9990, 10)
+    );
    ```
 
 2. **Configura la conexión en `db.py`:**
