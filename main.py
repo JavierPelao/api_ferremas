@@ -1,11 +1,11 @@
-
 from datetime import date
 from fastapi.responses import HTMLResponse
 
-import json
+
 from fastapi import Form
 import uuid
 from fastapi import FastAPI, HTTPException, Query
+
 
 from db import get_connection
 from pydantic import BaseModel
@@ -177,6 +177,8 @@ TBK_API_KEY_ID = '597055555532'
 TBK_API_KEY_SECRET = '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'
 WEBPAY_BASE_URL = 'https://webpay3gint.transbank.cl'  # Testing
 
+import httpx  # en vez de requests
+
 def webpay_request(data: dict, method: str, endpoint: str):
     headers = {
         'Tbk-Api-Key-Id': TBK_API_KEY_ID,
@@ -185,12 +187,18 @@ def webpay_request(data: dict, method: str, endpoint: str):
     }
 
     url = f"{WEBPAY_BASE_URL}{endpoint}"
-    response = requests.request(
-        method=method,
-        url=url,
-        headers=headers,
-        data=json.dumps(data) if data else None
-    )
+
+    with httpx.Client() as client:
+        response = client.request(
+            method=method,
+            url=url,
+            headers=headers,
+            json=data if data else None
+        )
+
+    # Validación de código HTTP
+    if not response.status_code // 100 == 2:  # si no es 2xx
+        raise HTTPException(status_code=response.status_code, detail=f"Error de WebPay: {response.text}")
 
     try:
         return response.json()
