@@ -165,6 +165,14 @@ API REST para la gestión de productos de ferretería, solicitudes, conversión 
 
 ### Pagos con WebPay (Transbank)
 
+Para la "url_webpay":
+
+💡 Se va actualizando automáticamente cada cierto tiempo, lo cual se tiene que hacer "rapido".
+
+💡 N° tarjeta: 4511 3466 6003 7060
+
+💡 Rut: 11.111.111-1 / clave: 123
+
 - **POST /webpay/crear**  
   Inicia una transacción de pago.  
   _Respuesta:_  
