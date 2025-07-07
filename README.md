@@ -1,45 +1,203 @@
-# FERREMAS API
+# API Ferremas
 
-API REST para la ferretería **FERREMAS**, desarrollada en **FastAPI + MySQL**.
-RECUERDEN DESCARGAR POSTMAN Y MYSQL Y MYSQL WORKBENCH 
-## ✅ Integraciones ya realizadas
+API REST para la gestión de productos de ferretería, solicitudes, conversión de divisas (CLP/USD) usando la API del Banco Central de Chile, e integración de pagos con WebPay (Transbank). Desarrollada con FastAPI y MySQL.
 
-1. **Catálogo de productos disponibles en bodega** (`GET /productos`)
-2. **Agregar, actualizar y eliminar productos** (`POST`, `PUT`, `DELETE /productos/{codigo}`)
+---
 
-## 🧠 Integraciones que faltan (por completar)
+## Tabla de Contenidos
 
-- [ ] **Sistema de pago para una venta** (puede ser simulado o integrar WebPay)
-- [ ] **Conversión de divisas (CLP <-> USD)** usando la API del **Banco Central**
+- [Requisitos](#requisitos)
+- [Instalación](#instalación)
+- [Configuración de la Base de Datos](#configuración-de-la-base-de-datos)
+- [Ejecución](#ejecución)
+- [Integraciones y Endpoints](#integraciones-y-endpoints)
+  - [Gestión de Productos](#gestión-de-productos)
+  - [Solicitudes](#solicitudes)
+  - [Conversión de Divisas (Banco Central)](#conversión-de-divisas-banco-central)
+  - [Pagos con WebPay (Transbank)](#pagos-con-webpay-transbank)
+- [Pruebas con Postman](#pruebas-con-postman)
+- [Notas](#notas)
 
-## 🚀 Cómo levantar el proyecto
-"Recuerden instalar esto en un entorno virtual" = env\Scripts\activate 
-Ponen el entorno virtual y luego ejecutan este pip
-pip install -r requirements.txt 
+---
 
-Para ejecutar el proyecto en la terminal se inicia asi = uvicorn main:app --reload(todo esto dentro del entorno virtual)
+## Requisitos
 
+- Python 3.11+
+- MySQL Server
+- Credenciales válidas para la API del Banco Central de Chile (para conversión de divisas)
+- Cuenta de pruebas Transbank (para WebPay)
 
-### 1. Clonar este repositorio
+---
 
-```bash 
-git clone https://github.com/JavierPelao/api_ferremas.git
-cd api_ferremas
-```
+## Instalación
 
-## 💱 API de Conversión de Moneda (CLP/USD)
+1. **Clona el repositorio:**
 
-(PARA UTILIZARLO CAMBIARLO A LA RAMA (branch) "Conversion de Divisas")
+   ```sh
+   git clone https://github.com/tu_usuario/api_ferremas.git
+   cd api_ferremas
+   ```
 
-Esta API permite convertir montos entre pesos chilenos (CLP) y dólares estadounidenses (USD), utilizando la API del Banco Central de Chile
+2. **Crea y activa un entorno virtual (opcional):**
 
-Despues de utilizar el comando "uvicorn main:app --reload" hay que abrir el postman poner:
+   ```sh
+   python -m venv env
+   env\Scripts\activate
+   ```
 
-Convertir de CLP a USD
-(GET http://127.0.0.1:8000/convertir?monto=10000&moneda_origen=CLP)
+3. **Instala las dependencias:**
 
-Convertir de USD a CLP
-(GET http://127.0.0.1:8000/convertir?monto=10&moneda_origen=USD)
+   ```sh
+   pip install -r requirements.txt
+   ```
 
+---
 
+## Configuración de la Base de Datos
+
+1. **Crea la base de datos y tablas en MySQL:**
+
+   ```sql
+   CREATE DATABASE ferremas_db;
+   USE ferremas_db;
+
+   CREATE TABLE productos (
+       codigo VARCHAR(50) PRIMARY KEY,
+       nombre VARCHAR(100),
+       marca VARCHAR(100),
+       precio FLOAT,
+       stock INT
+   );
+
+   CREATE TABLE solicitudes (
+       id INT AUTO_INCREMENT PRIMARY KEY,
+       codigo_producto VARCHAR(50),
+       cantidad INT,
+       sucursal VARCHAR(100),
+       FOREIGN KEY (codigo_producto) REFERENCES productos(codigo)
+   );
+   ```
+
+2. **Configura la conexión en `db.py`:**
+
+   Asegúrate de que los datos de host, usuario, contraseña y base de datos sean correctos.
+
+---
+
+## Ejecución
+
+1. **Inicia el servidor FastAPI:**
+
+   ```sh
+   uvicorn main:app --reload
+   ```
+
+2. **Accede a la documentación interactiva:**
+
+   - [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+---
+
+## Integraciones y Endpoints
+
+### Gestión de Productos
+
+- **GET /productos**  
+  Lista todos los productos.
+
+- **POST /productos**  
+  Agrega un producto.  
+  _Body ejemplo:_
+  ```json
+  {
+    "codigo": "P001",
+    "nombre": "Martillo",
+    "marca": "Truper",
+    "precio": 3500,
+    "stock": 20
+  }
+  ```
+
+- **PUT /productos/{codigo}**  
+  Actualiza un producto existente.
+
+- **DELETE /productos/{codigo}**  
+  Elimina un producto por código.
+
+---
+
+### Solicitudes
+
+- **POST /solicitudes**  
+  Crea una solicitud de producto.  
+  _Body ejemplo:_
+  ```json
+  {
+    "codigo_producto": "P001",
+    "cantidad": 5,
+    "sucursal": "Sucursal Centro"
+  }
+  ```
+
+---
+
+### Conversión de Divisas (Banco Central)
+
+- **GET /convertir?monto=10000&moneda_origen=CLP**  
+  Convierte entre CLP y USD usando el valor del dólar observado del Banco Central de Chile.  
+  - `monto`: cantidad a convertir  
+  - `moneda_origen`: "CLP" o "USD"  
+
+  _Ejemplo de respuesta:_
+  ```json
+  {
+    "monto_original": 10000,
+    "moneda_origen": "CLP",
+    "monto_convertido": 10.5,
+    "moneda_destino": "USD",
+    "tasa_actual": 950.0
+  }
+  ```
+
+  > **Nota:** Debes tener credenciales válidas del Banco Central configuradas en `main.py`.
+
+---
+
+### Pagos con WebPay (Transbank)
+
+- **POST /webpay/crear**  
+  Inicia una transacción de pago.  
+  _Respuesta:_  
+  ```json
+  {
+    "url_webpay": "http://localhost:8000/webpay/redirigir?token=...",
+    "token": "..."
+  }
+  ```
+  Accede a la URL para redirigir al usuario a WebPay.
+
+- **POST /webpay/confirmar**  
+  WebPay redirige aquí tras el pago.  
+  _Body (form-data):_
+  - `token_ws`: token entregado por WebPay
+
+- **GET /webpay/estado?token=...**  
+  Consulta el estado de una transacción.
+
+- **POST /webpay/reembolso**  
+  Realiza un reembolso.  
+  _Body (form-data):_
+  - `token`: token de la transacción
+  - `amount`: monto a reembolsar
+
+- **GET /webpay/redirigir?token=...**  
+  Redirige automáticamente al formulario de pago de WebPay.
+
+---
+
+## Pruebas con Postman
+
+1. Inicia el servidor con `uvicorn main:app --reload`.
+2. Usa la URL base `http://127.0.0.1:8000`.
+3. Prueba los endpoints desde Postman o desde `/docs`.
 
