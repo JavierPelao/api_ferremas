@@ -9,7 +9,8 @@ from fastapi import FastAPI, HTTPException, Query
 
 from db import get_connection
 from pydantic import BaseModel
-import requests
+import httpx
+
 
 app = FastAPI()
 
@@ -126,14 +127,14 @@ PASS = "Hola123"
 SERIE = "F073.TCO.PRE.Z.D"  # Tipo de cambio dólar observado
 
 def obtener_valor_dolar_observado():
-    hoy = date.today().strftime("%Y-%m-%d")
+    hoy = date.today()
     url = (
         f"https://si3.bcentral.cl/SieteRestWS/SieteRestWS.ashx"
         f"?user={USER}&pass={PASS}&firstdate={hoy}&lastdate={hoy}"
         f"&timeseries={SERIE}&function=GetSeries"
     )
 
-    resp = requests.get(url)
+    resp = httpx.get(url)
     print(f"Status: {resp.status_code}")
     print(f"Contenido:\n{resp.text}")
 
@@ -151,7 +152,7 @@ def obtener_valor_dolar_observado():
         raise HTTPException(status_code=500, detail=f"Error procesando datos: {e}")
 
 @app.get("/convertir")
-def convertir(monto: float = Query(..., gt=0), moneda_origen: str = Query(..., pattern="^(CLP|USD)$")):
+def convertir(monto: float = Query(..., gt=0), moneda_origen: str = Query(..., pattern="^(CLP|USD|clp|usd)$")):
     tasa = obtener_valor_dolar_observado()
 
     if moneda_origen.upper() == "CLP":
