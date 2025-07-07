@@ -1,5 +1,12 @@
+
 from datetime import date
+from fastapi.responses import HTMLResponse
+
+import json
+from fastapi import Form
+import uuid
 from fastapi import FastAPI, HTTPException, Query
+
 from db import get_connection
 from pydantic import BaseModel
 import httpx
@@ -113,6 +120,7 @@ def crear_solicitud(solicitud: SolicitudProducto):
     finally:
         conn.close()
 
+
 #Conversion de divisas CLP a USD y viceversa
 USER = "fr.manriquezf@duocuc.cl"
 PASS = "Hola123"
@@ -161,3 +169,106 @@ def convertir(monto: float = Query(..., gt=0), moneda_origen: str = Query(..., p
         "moneda_destino": moneda_destino,
         "tasa_actual": tasa
     }
+
+#------------------------------------
+# Configuración PayPal
+
+TBK_API_KEY_ID = '597055555532'
+TBK_API_KEY_SECRET = '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'
+WEBPAY_BASE_URL = 'https://webpay3gint.transbank.cl'  # Testing
+
+def webpay_request(data: dict, method: str, endpoint: str):
+    headers = {
+        'Tbk-Api-Key-Id': TBK_API_KEY_ID,
+        'Tbk-Api-Key-Secret': TBK_API_KEY_SECRET,
+        'Content-Type': 'application/json'
+    }
+
+    url = f"{WEBPAY_BASE_URL}{endpoint}"
+    response = requests.request(
+        method=method,
+        url=url,
+        headers=headers,
+        data=json.dumps(data) if data else None
+    )
+
+    try:
+        return response.json()
+    except:
+        raise HTTPException(status_code=500, detail="Respuesta inválida de WebPay")
+
+# Endpoint para iniciar la transacción
+@app.post("/webpay/crear")
+def crear_transaccion():
+    buy_order = str(uuid.uuid4())[:12]
+    session_id = str(uuid.uuid4())[:12]
+    amount = 15000
+    return_url = "http://localhost:8000/webpay/confirmar"
+
+    data = {
+        "buy_order": buy_order,
+        "session_id": session_id,
+        "amount": amount,
+        "return_url": return_url
+    }
+
+    result = webpay_request(data, "POST", "/rswebpaytransaction/api/webpay/v1.0/transactions")
+
+    if "token" in result and "url" in result:
+        redireccion_url = f"http://localhost:8000/webpay/redirigir?token={result['token']}"
+        return {
+            "url_webpay": redireccion_url,
+            "token": result["token"]
+        }
+    else:
+        raise HTTPException(status_code=500, detail="Error al crear la transacción WebPay")
+
+# Endpoint para confirmar el pago (WebPay redirige aquí con POST)
+@app.post("/webpay/confirmar")
+def confirmar_pago(token_ws: str = Form(...)):
+    result = webpay_request(None, "PUT", f"/rswebpaytransaction/api/webpay/v1.0/transactions/{token_ws}")
+
+    if result.get("status") == "AUTHORIZED":
+        return {
+            "mensaje": "Pago autorizado correctamente",
+            "detalle": result
+        }
+    else:
+        return {
+            "mensaje": "Pago rechazado o con error",
+            "detalle": result
+        }
+
+# Endpoint para obtener el estado de la transacción
+@app.get("/webpay/estado")
+def estado_pago(token: str):
+    result = webpay_request(None, "GET", f"/rswebpaytransaction/api/webpay/v1.0/transactions/{token}")
+    return result
+
+# Endpoint para realizar un reembolso
+@app.post("/webpay/reembolso")
+def reembolso(token: str = Form(...), amount: int = Form(...)):
+    data = {
+        "amount": amount
+    }
+
+    result = webpay_request(data, "POST", f"/rswebpaytransaction/api/webpay/v1.0/transactions/{token}/refunds")
+
+    if "type" in result and result["type"] == "NULLIFIED":
+        return {"mensaje": "Reembolso exitoso", "detalle": result}
+    else:
+        return {"mensaje": "No se pudo procesar el reembolso", "detalle": result}
+    
+
+@app.get("/webpay/redirigir")
+def redirigir_webpay(token: str):
+    html_content = f"""
+    <html>
+        <body onload="document.forms[0].submit()">
+            <form action="https://webpay3gint.transbank.cl/webpayserver/initTransaction" method="POST">
+                <input type="hidden" name="token_ws" value="{token}">
+            </form>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content, status_code=200)
